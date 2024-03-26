@@ -22,25 +22,31 @@ async fn services<'a>(headers: HashMap<&'a str, &'a str>) -> Result<(), Error> {
     }
 
     let response = client.get(url).headers(req_headers).send().await?;
-    if response.status() != StatusCode::OK {
-        eprint!("Error: {}", response.status());
-    } else {
-        let result = response.json::<Value>().await?;
-        if let Some(data) = result.get("data").and_then(|d| d.as_array()) {
-            for entry in data {
-                if let Some(dd_service) = entry
-                    .get("attributes")
-                    .and_then(|a| a.get("schema"))
-                    .and_then(|s| s.get("dd-service"))
-                    .and_then(|ds| ds.as_str())
-                {
-                    let df = DataFrame::new(vec![Series::new(
-                        "FS APM LiST",
-                        vec![dd_service.to_string()],
-                    )]);
-                    println!("{:?}", df)
+    match response.status() {
+        StatusCode::OK => {
+            let result = response.json::<Value>().await?;
+            if let Some(data) = result.get("data").and_then(|d| d.as_array()) {
+                for entry in data {
+                    if let Some(dd_service) = entry
+                        .get("attributes")
+                        .and_then(|a| a.get("schema"))
+                        .and_then(|s| s.get("dd-service"))
+                        .and_then(|ds| ds.as_str())
+                    {
+                        let df = DataFrame::new(vec![Series::new(
+                            "FS APM LiST",
+                            vec![dd_service.to_string()],
+                        )]);
+                        println!("{:?}", df)
+                    }
                 }
             }
+        }
+        StatusCode::BAD_REQUEST => {
+            eprintln!("{}", StatusCode::BAD_REQUEST)
+        }
+        _ => {
+            eprintln!("Unexpected Error: {}", response.status())
         }
     }
     Ok(())
